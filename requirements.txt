@@ -1,0 +1,16 @@
+certifi==2019.6.16
+chardet==3.0.4
+idna==2.8
+nltk==3.4.5
+numpy==1.17.2
+pandas==0.25.1
+pick==0.6.4
+protobuf==3.9.1
+python-dateutil==2.8.0
+pytz==2019.2
+requests==2.22.0
+six==1.12.0
+stanfordnlp==0.2.0
+torch==1.2.0
+tqdm==4.35.0
+urllib3==1.25.3
