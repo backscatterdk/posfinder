@@ -1,6 +1,6 @@
 """
 This script takes in a csv with a column of text and generates
-a the same csv with words of a given PoS-tag (eg nouns, verbs etc)
+a copy of that csv with words of a given PoS-tag (eg nouns, verbs etc)
 filtered in the column "filtered"
 
 For linux systems, you may have to run this in your terminal first
