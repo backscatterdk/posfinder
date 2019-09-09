@@ -67,11 +67,6 @@ def remove_punc(words):
 
 nltk.download('stopwords')
 
-"""
-Choose which types of words (eg. nouns, verbs) are desired.
-For POS tags, see https://universaldependencies.org/u/pos/
-"""
-
 # Pick which PoS tags you want
 POSTAG_TITLE = 'Please POS tags (SPACE to mark, ENTER to continue)'
 POSTAGS = ['ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CCONJ',
@@ -82,7 +77,7 @@ WANTED_POS = pick(POSTAGS, POSTAG_TITLE,
 WANTED_POS = [pos[0] for pos in WANTED_POS]
 
 # Pick language
-LANG_TITLE = 'Please chose which language the text is in.'
+LANG_TITLE = 'Please choose which language the text is in.'
 LANGS = ['en', 'da', 'other']
 LANG, LANG_TITLE = pick(LANGS, LANG_TITLE)
 if LANG == 'other':
@@ -92,11 +87,11 @@ if LANG == 'other':
 # Download model for nlp.
 if not os.path.exists(os.path.join(os.environ['HOME'],
                                    'stanfordnlp_resources', f'{LANG}_ddt_models')):
-    stanfordnlp.download(F'{LANG}')
+    stanfordnlp.download(LANG)
 
 
 # Set up nlp pipeline
-NLP = stanfordnlp.Pipeline(processors='tokenize,mwt,lemma,pos', lang='da')
+NLP = stanfordnlp.Pipeline(processors='tokenize,mwt,lemma,pos', lang=LANG)
 
 # Read data. Change to correspond.
 DATA = pd.read_csv('parents_full.csv')
@@ -104,7 +99,7 @@ DATA = pd.read_csv('parents_full.csv')
 # For progress bar
 tqdm.pandas()
 
-# Get get stop words -> doesn't seem to be used
+# Get get stop words TODO
 STOP_WORDS = stopwords.words('danish')
 
 # Pick column for terms
