@@ -1,120 +1,88 @@
-"""
-This script takes in a csv with a column of text and generates
-a copy of that csv with words of a given PoS-tag (eg nouns, verbs etc)
-filtered in the column "filtered"
-
-For linux systems, you may have to run this in your terminal first
-to get the picking options to work
-
-$ export TERM=linux
-$ export TERMINFO=/bin/zsh
-
-"""
-
-import os
+import argparse
 import string
-import pandas as pd
+from pathlib import Path
+from datetime import date, timedelta
 import stanfordnlp
-import nltk
-from nltk.corpus import stopwords
-from tqdm import tqdm
-from pick import pick
+import pandas as pd
+import dask.dataframe as dd
+from dask.diagnostics import ProgressBar
 
 
-def clean_text(text):
-    """
-    Remove punctuation
-    """
-    return text.translate(str.maketrans('', '', string.punctuation))
+def process(text, nlp, lang, wanted_pos):
+    try:
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        token = nlp(text)
+        words = {word for sent in token.sentences for word in sent.words}
+        wanted_words = set(filter(lambda word: word.upos in wanted_pos, words))
+        wanted_words = ','.join(word.lemma for word in wanted_words if word)
+        return wanted_words
+    except:
+        return ''
 
 
-def get_lemma(token):
-    """
-    Get the lemma from the tokeniszed sentences
-    """
-    return [word.lemma for sent in token.sentences
-            for word in sent.words]
+def name(i):
+    return str(date(2015, 1, 1) + i * timedelta(days=1))
 
 
-def remove_stop(words):
-    """
-    Remove stop words
-    """
-    return [word for word in words if word not in STOP_WORDS]
+if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(
+        description='Choose data and whether parrellize.'
+    )
+    parser.add_argument('data_file', metavar='D', default='data.csv',
+                        help='file to process')
+    parser.add_argument('column_name', metavar='C', default='for_nlp',
+                        help='column in csv to process')
+    parser.add_argument('use_dask', metavar='P',
+                        help='''choose whether to run serially with pandas or in
+parralel with dask''')
+    parser.add_argument('lang', metavar='L', default='da',
+                        help='langauge')
+    parser.add_argument('wanted_pos', metavar='W', default='NOUN',
+                        help='Choose wanted POS tags')
 
-def filter_pos(token):
-    """
-    This is for filtering based on word type
-    """
-    filtered = []
-    for sent in token.sentences:
-        filtered.extend([word.lemma for word in sent.words
-                         if word.upos in WANTED_POS])
-    filtered = list(set(filtered))
-    return filtered
+    args = parser.parse_args()
 
+    # Deal with stanford models
+    model_dir = Path.home() / 'stanfordnlp_resources'
+    # model_list is a list of the correct model of max 1 in len
+    model_list = list(model_dir.glob(f'{args.lang}_*_models'))
+    if not model_list: # download model
+        stanfordnlp.download(args.lang)
+    nlp = stanfordnlp.Pipeline(
+        processors='tokenize,lemma,pos', lang=args.lang)
 
-def remove_punc(words):
-    """
-    Removes punctuation and lowercases.
-    """
-    out = []
-    for w in words:
-        out.append(''.join(e.lower() for e in w if e.isalnum()))
-    return out
+    # Either use dask og pandas
+    if args.use_dask is not None:
+        # Read data
+        chunks = pd.read_csv(args.data_file, engine='python',
+                             error_bad_lines=False, chunksize=20000)
 
+        for i, chunk in enumerate(chunks):
+            df = dd.from_pandas(chunk, npartitions=24)
 
-nltk.download('stopwords')
+            df['tagged'] = df[args.column_name].apply(
+                lambda x: process(text=x, nlp=nlp, lang=args.lang,
+                                  wanted_pos=args.wanted_pos)
+                if type(x) == str else '',
+                meta=(args.column_name, str))
 
-# Pick which PoS tags you want
-POSTAG_TITLE = 'Please POS tags (SPACE to mark, ENTER to continue)'
-POSTAGS = ['ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CCONJ',
-           'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ']
-WANTED_POS = pick(POSTAGS, POSTAG_TITLE,
-                  multi_select=True, min_selection_count=1)
+            with ProgressBar():
+                df.compute()
 
-WANTED_POS = [pos[0] for pos in WANTED_POS]
+            outfolder = Path('.') / 'output'
+            Path.mkdir(outfolder, exist_ok=True)
+            df.to_csv(outfolder / f'export_{i}-*.csv', name_function=name)
+    else:
+            # Read data
+        data = pd.read_csv(args.data_file, engine='python',
+                           error_bad_lines=False)
 
-# Pick language
-LANG_TITLE = 'Please choose which language the text is in.'
-LANGS = ['en', 'da', 'other']
-LANG, LANG_TITLE = pick(LANGS, LANG_TITLE)
-if LANG == 'other':
-    LANG = input('Please input language code \
-(see stanfordnlp.github.io/stanfordnlp/models.html)')
+        df['tagged'] = df[args.column_name].apply(
+            lambda x: process(text=x, nlp=nlp, lang=args.lang,
+                              wanted_pos=args.wanted_pos)
+            if type(x) == str else '')
 
-# Download model for nlp.
-if not os.path.exists(os.path.join(os.environ['HOME'],
-                                   'stanfordnlp_resources', f'{LANG}_ddt_models')):
-    stanfordnlp.download(LANG)
-
-
-# Set up nlp pipeline
-NLP = stanfordnlp.Pipeline(processors='tokenize,mwt,lemma,pos', lang=LANG)
-
-# Read data. Change to correspond.
-DATA = pd.read_csv('parents_full.csv')
-
-# For progress bar
-tqdm.pandas()
-
-# Get get stop words TODO
-STOP_WORDS = stopwords.words('danish')
-
-# Pick column for terms
-COLUMN_TITLE = 'Please chose which column contains the words.'
-COLUMNS = DATA.columns
-COLUMN, COLUMN_TITLE = pick(COLUMNS, COLUMN_TITLE)
-
-DATA['tokens'] = DATA[COLUMN].progress_apply(lambda text: NLP(text))
-DATA['lemmas'] = DATA['tokens'].apply(get_lemma)
-DATA['lemmas_string'] = DATA['lemmas'].apply(lambda x: " ".join(x))
-DATA['without_stop'] = DATA['lemmas'].apply(remove_stop)
-DATA['filtered'] = DATA['tokens'].apply(filter_pos)
-DATA['filtered'] = DATA['filtered'].apply(remove_punc)
-DATA['filtered'] = DATA['filtered'].apply(lambda x: ", ".join(x))
-DATA.drop(['tokens', 'lemmas', 'lemmas_string', 'without_stop'],
-          axis=1, inplace=True)
-
-DATA.to_csv('pos_tagged.csv')
+        outfolder = Path('.') / 'output'
+        Path.mkdir(outfolder, exist_ok=True)
+        df.to_csv(outfolder / 'export.csv')
