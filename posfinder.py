@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         help='file to process')
     parser.add_argument('column_name', metavar='C', default='for_nlp',
                         help='column in csv to process')
-    parser.add_argument('use_dask', metavar='P',
+    parser.add_argument('use_dask', metavar='P', action='store_true',
                         help='''choose whether to run serially with pandas or in
 parralel with dask''')
     parser.add_argument('lang', metavar='L', default='da',
@@ -53,7 +53,7 @@ parralel with dask''')
         processors='tokenize,lemma,pos', lang=args.lang)
 
     # Either use dask og pandas
-    if args.use_dask is not None:
+    if args.use_dask:
         # Read data
         chunks = pd.read_csv(args.data_file, engine='python',
                              error_bad_lines=False, chunksize=20000)
