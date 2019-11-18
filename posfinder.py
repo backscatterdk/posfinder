@@ -27,19 +27,24 @@ def name(i):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description='Choose data and whether parrellize.'
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Extract words with a certain pos-tag.',
     )
     parser.add_argument('data_file', metavar='D', default='data.csv',
-                        help='file to process')
+                        help='''csv file to process. 
+Must have a column with text. Default: %(default)s.''')
     parser.add_argument('column_name', metavar='C', default='for_nlp',
-                        help='column in csv to process')
-    parser.add_argument('use_dask', metavar='P', action='store_true',
-                        help='''choose whether to run serially with pandas or in
-parralel with dask''')
+                        help='''column in csv to process. 
+Must contain text. Default: %(default)s.''')
     parser.add_argument('lang', metavar='L', default='da',
-                        help='langauge')
+                        help='''language of text.
+Default: %(default)s.''')
     parser.add_argument('wanted_pos', metavar='W', default='NOUN',
-                        help='Choose wanted POS tags')
+                        help='''choose wanted POS tags.
+Default: %(default)s.''')
+    parser.add_argument('-d', '--use_dask', action='store_true',
+                        help='''choose whether to run serially
+with pandas or in parralel with dask.''')
 
     args = parser.parse_args()
 
