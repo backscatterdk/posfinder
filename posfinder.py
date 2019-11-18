@@ -52,14 +52,15 @@ with pandas or in parralel with dask.''')
     model_dir = Path.home() / 'stanfordnlp_resources'
     # model_list is a list of the correct model of max 1 in len
     model_list = list(model_dir.glob(f'{args.lang}_*_models'))
-    if not model_list: # download model
+    if not model_list:
         stanfordnlp.download(args.lang)
     nlp = stanfordnlp.Pipeline(
         processors='tokenize,lemma,pos', lang=args.lang)
 
-    # Either use dask og pandas
+    outfolder = Path('.') / 'output'
+    Path.mkdir(outfolder, exist_ok=True)
+
     if args.use_dask:
-        # Read data
         chunks = pd.read_csv(args.data_file, engine='python',
                              error_bad_lines=False, chunksize=20000)
 
@@ -75,11 +76,9 @@ with pandas or in parralel with dask.''')
             with ProgressBar():
                 df.compute()
 
-            outfolder = Path('.') / 'output'
-            Path.mkdir(outfolder, exist_ok=True)
-            df.to_csv(outfolder / f'export_{i}-*.csv', name_function=name)
+            df.to_csv(outfolder / f'export_{i}-*.csv',
+                      name_function=name)
     else:
-            # Read data
         data = pd.read_csv(args.data_file, engine='python',
                            error_bad_lines=False)
 
@@ -88,6 +87,5 @@ with pandas or in parralel with dask.''')
                               wanted_pos=args.wanted_pos)
             if type(x) == str else '')
 
-        outfolder = Path('.') / 'output'
-        Path.mkdir(outfolder, exist_ok=True)
+        
         df.to_csv(outfolder / 'export.csv')
